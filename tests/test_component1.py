@@ -120,7 +120,7 @@ def test_fake_component1_output_hands_off_to_components2_and3(tmp_path):
     from component3_pipeline_builder import run as run_component3
     from mapping_parser import parse_mapping_json
 
-    mapping = json.loads((Path(__file__).parents[1] / "sample_specs" / "customer_pipeline.json").read_text())
+    mapping = json.loads((Path(__file__).parent / "fixtures" / "sample_specs" / "customer_pipeline.json").read_text())
     
     agent = MappingAgent(FakeLLMClient(mapping), Settings(llm_max_retries=0))
     generated = agent.generate("Customer mapping")

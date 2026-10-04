@@ -6,20 +6,32 @@ build-backend = "setuptools.build_meta"
 name = "databricks-pipeline-builder-assistant"
 version = "0.3.0"
 description = "Local-LLM-assisted deterministic Databricks pipeline generator"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ["PyYAML>=6.0", "pydantic>=2.0"]
+readme = "README.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=7.4"]
 
 [project.scripts]
-dpba = "dpba.__main__:main"
+dpba-legacy = "dpba.legacy_runner:cli_main"
 
-[tool.setuptools]
-packages = ["dpba"]
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+dpba = ["prompts/*.txt"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
     "ollama: tests that require a live Ollama server (deselect with '-m not ollama')",
 ]
+pythonpath = ["src"]

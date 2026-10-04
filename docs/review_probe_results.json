@@ -1,0 +1,105 @@
+{
+  "empty_object_passes_component1": {},
+  "empty_object_then_component2": {
+    "exception": "IndexError",
+    "message": "list index out of range"
+  },
+  "schema_shaped_empty_stages_pass_component1": {
+    "pipeline_metadata": {},
+    "source_configuration": {},
+    "pipeline_stages": [
+      {},
+      {}
+    ]
+  },
+  "invalid_graph_accepted": {
+    "accepted_inputs": [
+      "nonexistent_stage"
+    ],
+    "actually_reads_previous_stage": true
+  },
+  "unsupported_rule_silently_skipped": {
+    "accepted": true,
+    "emitted_skip_comment": true
+  },
+  "legacy_deployment_metadata_lost": {
+    "declared_environments": [
+      "dev",
+      "staging",
+      "prod"
+    ],
+    "generated_environments": [
+      "dev"
+    ],
+    "declared_bundle": "customer_pipeline",
+    "generated_bundle": "customer_pipeline_bundle",
+    "declared_source": "/mnt/raw/customer_pipeline/",
+    "generated_dev_source": "/mnt/raw/customer_pipeline/dev/"
+  },
+  "integer_cast_oracle": {
+    "expected": "001",
+    "snippet": "# Rule: cast raw \u2192 out (integer)\ndf = df.withColumn(\"out\", F.col(\"raw\").cast(IntegerType()))"
+  },
+  "decimal_input_oracle": {
+    "expected": null
+  },
+  "null_numeric_rule_oracle": true,
+  "quote_separator_breaks_python": {
+    "exception": "SyntaxError",
+    "message": "unterminated triple-quoted string literal (detected at line 6) (<unknown>, line 5)"
+  },
+  "quote_description_breaks_yaml": {
+    "exception": "ParserError",
+    "message": "while parsing a block mapping\n  in \"<unicode string>\", line 10, column 7:\n          name: \"customer_pipeline_workflo ... \n          ^\nexpected <block end>, but found '<scalar>'\n  in \"<unicode string>\", line 11, column 24:\n          description: \"A \"quoted\" business description\"\n                           ^"
+  },
+  "source_column_shadowing": {
+    "oracle": {
+      "a": "B",
+      "b": "A"
+    },
+    "emitted_sequential_snippets": [
+      "# Rule: b \u2192 a (direct passthrough)\ndf = df.withColumn(\"a\", F.col(\"b\").cast(StringType()))",
+      "# Rule: a \u2192 b (direct passthrough)\ndf = df.withColumn(\"b\", F.col(\"a\").cast(StringType()))"
+    ]
+  },
+  "expectation_precedence_disagrees": {
+    "oracle_disposition": [
+      "dropped",
+      false
+    ],
+    "emits_fail_before_drop": true
+  },
+  "overwrite_with_keys_emits_merge": {
+    "declared_mode": "overwrite",
+    "emits_merge": true
+  },
+  "table_source_emits_file_read": {
+    "accepted_type": "table",
+    "uses_file_load": true
+  },
+  "manual_ambiguity_bypasses_gate": {
+    "manual_json_accepted": true,
+    "normalized_confidence": "high"
+  },
+  "unknown_target_type_silently_string": {
+    "declared": "float",
+    "generated_type": "StringType()"
+  },
+  "same_spec_same_artifact_text": true,
+  "unsupported_transform_does_not_retry": {
+    "calls": 1,
+    "error": "UnsupportedOperationError"
+  },
+  "isolated_package_build": {
+    "built_files": [
+      "dpba\\__init__.py",
+      "dpba\\__main__.py",
+      "dpba\\component1.py",
+      "dpba\\config.py",
+      "dpba\\exceptions.py",
+      "dpba\\llm.py"
+    ],
+    "entrypoint_import_exit": 1,
+    "error": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"C:\\Users\\vilas\\AppData\\Local\\Temp\\dpba-review-package-sd_5dasv\\built\\dpba\\__main__.py\", line 11, in <module>\n    from dpba.component1 import MappingAgent, read_mapping_document\n  File \"C:\\Users\\vilas\\AppData\\Local\\Temp\\dpba-review-package-sd_5dasv\\built\\dpba\\component1.py\", line 9, in <module>\n    from mapping_parser import parse_mapping_dict, PipelineSpec\nModuleNotFoundError: No module named 'mapping_parser'"
+  }
+}

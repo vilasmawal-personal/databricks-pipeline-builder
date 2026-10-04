@@ -41,11 +41,11 @@ You can run this entirely locally, ensuring zero data egress to external APIs.
 
 ### 1. Prerequisites
 
-1. **Python 3.9+**
+1. **Python 3.10+**
 2. **Ollama**: Download and install from [ollama.com](https://ollama.com)
 3. **Dependencies**:
    ```bash
-   pip install pydantic pytest pyyaml
+   python -m pip install -e '.[dev]'
    ```
 
 ### 2. Prepare the LLM
@@ -72,13 +72,13 @@ export DPBA_LLM_MAX_RETRIES="3"
 You can use the DPBA runner to execute all components end-to-end, passing in a Markdown/Text document containing the requirements:
 
 ```bash
-python dpba_runner.py --requirements my_pipeline_requirements.md --output-dir ./build
+dpba run my_pipeline_requirements.md --output ./artifacts/build
 ```
 
 If you already have a structured JSON (like the provided recommended template), you can skip Component 1 (the LLM extraction phase) and directly generate code:
 
 ```bash
-python dpba_runner.py --mapping my_pipeline_mapping.json --output-dir ./build
+dpba run my_pipeline_mapping.json --output ./artifacts/build
 ```
 
 ### 5. Running the Tests

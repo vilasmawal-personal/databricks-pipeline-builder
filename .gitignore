@@ -1,0 +1,22 @@
+# Python environments and build output
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage*
+
+# Local settings and secrets
+.env
+.env.*
+!.env.example
+
+# Generated bundles, local output, and logs
+/artifacts/*
+!/artifacts/.gitkeep
+*.log
