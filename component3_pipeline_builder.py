@@ -913,7 +913,7 @@ def _build_task_blocks(spec: PipelineSpec) -> list[str]:
                   {prev_stage.name}_table: "{_job_table_var(spec, prev_stage)}"
                   {stage.name}_table: "{_job_table_var(spec, stage)}"
                   run_date: "{{{{job.start_time.iso_date}}}}"
-                  write_mode: "append"
+                  write_mode: "{stage.write_mode}"
               timeout_seconds: 3600
               max_retries: 1"""))
         prev_task_key, prev_stage = task_key, stage

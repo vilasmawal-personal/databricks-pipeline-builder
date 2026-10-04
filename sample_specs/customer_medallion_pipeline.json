@@ -1,0 +1,20 @@
+{
+  "pipeline_metadata": {"pipeline_name": "customer_medallion_pipeline", "description": "Three-stage customer pipeline", "domain": "customer"},
+  "source_configuration": {"source_system": "customer_export", "format": "csv", "location": "/mnt/raw/customers/", "read_options": {"header": "true", "inferSchema": "false"}},
+  "pipeline_stages": [
+    {"stage_name": "bronze", "stage_type": "ingest", "target": {"table_name": "main.bronze.customers_raw", "format": "delta", "write_mode": "append"}},
+    {"stage_name": "silver", "stage_type": "transform", "target": {"table_name": "main.silver.customers", "format": "delta", "write_mode": "merge", "merge_keys": ["customer_id"]}, "mappings": [
+      {"target_field": "customer_id", "source_fields": ["customer_id_raw"], "target_data_type": "string", "is_nullable": false, "transformation": {"type": "cast", "params": {}}},
+      {"target_field": "full_name", "source_fields": ["first_name", "last_name"], "target_data_type": "string", "is_nullable": true, "transformation": {"type": "concat", "params": {"separator": " "}}},
+      {"target_field": "balance", "source_fields": ["balance_cents"], "target_data_type": "decimal(18,2)", "is_nullable": true, "transformation": {"type": "conditional", "params": {"divisor": 100}}}
+    ]},
+    {"stage_name": "gold", "stage_type": "transform", "target": {"table_name": "main.gold.customer_summary", "format": "delta", "write_mode": "append"}, "mappings": [
+      {"target_field": "customer_id", "source_fields": ["customer_id"], "target_data_type": "string", "is_nullable": false, "transformation": {"type": "direct", "params": {}}},
+      {"target_field": "full_name", "source_fields": ["full_name"], "target_data_type": "string", "is_nullable": true, "transformation": {"type": "direct", "params": {}}},
+      {"target_field": "balance", "source_fields": ["balance"], "target_data_type": "decimal(18,2)", "is_nullable": true, "transformation": {"type": "cast", "params": {}}}
+    ]}
+  ],
+  "test_data_specifications": {"unity_catalog": {"schema": "gold_test"}},
+  "bundle_metadata": {"bundle_name": "customer_medallion", "target_environments": ["dev", "staging", "prod"]},
+  "workflow_specification": {"job_name": "customer_medallion", "job_clusters": [{"new_cluster": {"spark_version": "15.4.x-scala2.12", "node_type_id": "m5d.large", "num_workers": 2}}]}
+}

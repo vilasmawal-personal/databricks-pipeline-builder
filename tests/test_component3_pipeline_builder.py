@@ -169,6 +169,13 @@ class TestJobDAG:
         expected = 1 + 1 + len(sample_spec.transform_stages) + 1
         assert len(job["tasks"]) == expected
 
+    def test_transform_write_modes_follow_mapping(self, sample_spec):
+        job = self._job(sample_spec)
+        tasks = {t["task_key"]: t for t in job["tasks"]}
+        for stage in sample_spec.transform_stages:
+            params = tasks[f"transform_to_{stage.name}"]["notebook_task"]["base_parameters"]
+            assert params["write_mode"] == stage.write_mode
+
 
 class TestComputeRouting:
     """least-compute regression: the two lightweight utility tasks must

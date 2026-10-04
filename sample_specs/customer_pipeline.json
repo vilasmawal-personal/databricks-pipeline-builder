@@ -1,0 +1,22 @@
+{
+  "pipeline_metadata": {"pipeline_name": "customer_pipeline", "description": "Customer master ingestion and standardization", "domain": "customer"},
+  "source_configuration": {"source_system": "customer_export", "format": "csv", "location": "/mnt/raw/customer_pipeline/", "read_options": {"header": "true", "inferSchema": "false"}},
+  "target_configurations": {
+    "bronze_layer": {"table_name": "main.bronze.customers_raw", "format": "delta", "write_mode": "append"},
+    "silver_layer": {"table_name": "main.silver.customers", "format": "delta", "write_mode": "merge", "merge_keys": ["customer_id"]}
+  },
+  "mappings": [
+    {"target_field": "customer_id", "source_fields": ["customer_id_raw"], "target_data_type": "string", "is_nullable": false, "transformation": {"type": "cast", "params": {}}},
+    {"target_field": "first_name", "source_fields": ["first_name_raw"], "target_data_type": "string", "is_nullable": true, "transformation": {"type": "cast", "params": {}}},
+    {"target_field": "last_name", "source_fields": ["last_name_raw"], "target_data_type": "string", "is_nullable": true, "transformation": {"type": "cast", "params": {}}},
+    {"target_field": "full_name", "source_fields": ["first_name_raw", "last_name_raw"], "target_data_type": "string", "is_nullable": true, "transformation": {"type": "concat", "params": {"separator": " "}}},
+    {"target_field": "account_balance", "source_fields": ["balance_cents"], "target_data_type": "decimal(18,2)", "is_nullable": true, "default_value": 0.0, "transformation": {"type": "conditional", "params": {"divisor": 100}}},
+    {"target_field": "account_status", "source_fields": ["status_flag"], "target_data_type": "string", "is_nullable": true, "transformation": {"type": "lookup", "params": {"value_map": {"A": "ACTIVE", "I": "INACTIVE"}, "case_insensitive": true}}}
+  ],
+  "data_expectations": [
+    {"expectation_name": "customer_id_required", "rule": "customer_id IS NOT NULL", "action_on_failure": "quarantine"}
+  ],
+  "test_data_specifications": {"unity_catalog": {"schema": "silver_test"}},
+  "bundle_metadata": {"bundle_name": "customer_pipeline", "version": "1.0.0", "target_environments": ["dev", "staging", "prod"]},
+  "workflow_specification": {"job_name": "customer_pipeline", "description": "Build customer dimensions", "job_clusters": [{"new_cluster": {"spark_version": "15.4.x-scala2.12", "node_type_id": "m5d.large", "num_workers": 2}}]}
+}

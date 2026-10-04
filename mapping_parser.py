@@ -325,9 +325,7 @@ def _parse_fields(mappings_raw: list[dict], verbose: bool = True) -> list[FieldM
     for row in mappings_raw:
         tgt = row.get("target_field")
         if not tgt:
-            if verbose:
-                print(f"  [parser] ⚠️  Skipping mapping with no target_field: {row}")
-            continue
+            raise ValueError(f"Mapping at index {len(fields)} has no target_field; refusing to skip it.")
 
         src_fields = row.get("source_fields")
         if src_fields is None:
@@ -363,13 +361,10 @@ def _parse_expectations(rows: list[dict], verbose: bool = True) -> list[DataExpe
         rule   = row.get("rule", "")
         action = str(row.get("action_on_failure") or "quarantine").strip().lower()
         if action not in ("drop_row", "quarantine", "fail_pipeline"):
-            if verbose:
-                print(f"  [parser] ⚠️  Unknown action_on_failure={action!r} for '{name}' — defaulting to 'quarantine'")
-            action = "quarantine"
+            raise ValueError(f"Unsupported action_on_failure={action!r} for expectation {name!r}; use drop_row, quarantine, or fail_pipeline.")
         parsed = parse_expectation_rule(rule)
-        if parsed is None and verbose:
-            print(f"  [parser] ⚠️  Rule for '{name}' ({rule!r}) is outside the supported grammar "
-                  f"— it will be documented in generated code but not auto-enforced.")
+        if parsed is None:
+            raise ValueError(f"Expectation {name!r} uses unsupported rule {rule!r}; supported rules are field null checks and numeric comparisons.")
         expectations.append(DataExpectation(name=name, rule=rule, action_on_failure=action, parsed=parsed))
     return expectations
 
@@ -496,6 +491,8 @@ def parse_mapping_json(json_path: str, verbose: bool = True) -> PipelineSpec:
         job_parameters=job_parameters,
     )
 
+    validate_pipeline_spec(spec)
+
     if verbose:
         total_fields = sum(len(s.fields) for s in spec.transform_stages)
         total_exps   = sum(len(s.expectations) for s in spec.transform_stages)
@@ -506,6 +503,67 @@ def parse_mapping_json(json_path: str, verbose: bool = True) -> PipelineSpec:
         print(f"  [parser] ✅ test fixtures → {spec.test_synthetic_input_table} / {spec.test_expected_output_table}")
 
     return spec
+
+
+_VALID_TYPES = {"string", "boolean", "bool", "date", "timestamp", "integer", "int", "long", "double"}
+
+
+def validate_pipeline_spec(spec: PipelineSpec) -> None:
+    """Validate cross-references and supported deterministic semantics."""
+    errors: list[str] = []
+    if len({stage.name for stage in spec.stages}) != len(spec.stages):
+        errors.append("stage names must be unique")
+    if spec.stages[0].stage_type != STAGE_INGEST:
+        errors.append("the first stage must be an ingest stage")
+    for i, stage in enumerate(spec.stages[1:], start=1):
+        if stage.stage_type != STAGE_TRANSFORM:
+            errors.append("stage {!r} must be a transform stage".format(stage.name))
+        prior_fields = set(spec.stages[i - 1].all_target_fields) if i > 1 else None
+        names = [fm.target_field for fm in stage.fields]
+        if len(names) != len(set(names)):
+            errors.append("stage {!r} contains duplicate target fields".format(stage.name))
+        for fm in stage.fields:
+            if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", fm.target_field):
+                errors.append("invalid target field name {!r} in stage {!r}".format(fm.target_field, stage.name))
+            dtype = fm.target_data_type
+            if dtype not in _VALID_TYPES and not _DECIMAL_RE.match(dtype):
+                errors.append("unsupported target type {!r} for field {!r}".format(dtype, fm.target_field))
+            if prior_fields is not None:
+                missing = set(fm.source_fields) - prior_fields
+                if missing:
+                    errors.append("stage {!r} field {!r} references missing prior-stage field(s): {}".format(
+                        stage.name, fm.target_field, ", ".join(sorted(missing))))
+            params = fm.transformation_params
+            if not isinstance(params, dict):
+                errors.append("transformation params for {!r} must be an object".format(fm.target_field))
+                continue
+            if fm.transformation_type == T_CONCAT and not fm.source_fields:
+                errors.append("concat field {!r} requires at least one source field".format(fm.target_field))
+            if fm.transformation_type == T_CONDITIONAL:
+                divisor = params.get("divisor", 100)
+                if not isinstance(divisor, (int, float)) or divisor == 0:
+                    errors.append("conditional field {!r} requires a non-zero numeric divisor".format(fm.target_field))
+            if fm.transformation_type in (T_DATE_FORMAT, T_CONDITIONAL_DATE):
+                formats = params.get("source_formats", [])
+                if formats and (not isinstance(formats, list) or not all(isinstance(x, str) for x in formats)):
+                    errors.append("date field {!r} source_formats must be a list of strings".format(fm.target_field))
+            if fm.transformation_type == T_LOOKUP and not isinstance(params.get("value_map", {}), dict):
+                errors.append("lookup field {!r} value_map must be an object".format(fm.target_field))
+            if fm.transformation_type == T_SPLIT:
+                if not isinstance(params.get("index", 0), int):
+                    errors.append("split field {!r} index must be an integer".format(fm.target_field))
+                if not isinstance(params.get("delimiter", " "), str):
+                    errors.append("split field {!r} delimiter must be a string".format(fm.target_field))
+        target_fields = set(names)
+        for key in stage.merge_keys:
+            if key not in target_fields:
+                errors.append("merge key {!r} is not produced by stage {!r}".format(key, stage.name))
+        for expectation in stage.expectations:
+            if expectation.parsed and expectation.parsed["field"] not in target_fields:
+                errors.append("expectation {!r} references unknown stage field {!r}".format(
+                    expectation.name, expectation.parsed["field"]))
+    if errors:
+        raise ValueError("Invalid PipelineSpec: " + "; ".join(errors))
 
 
 def print_spec_table(spec: PipelineSpec) -> None:
