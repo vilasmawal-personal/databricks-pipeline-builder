@@ -24,7 +24,7 @@ _TRANSFORMATION_SCHEMA = {
         "params": {"type": "object"},
         "logic": {"type": "string"},
     },
-    "additionalProperties": True,
+    "additionalProperties": False,
 }
 
 _MAPPING_SCHEMA = {
@@ -39,7 +39,7 @@ _MAPPING_SCHEMA = {
         "transformation": _TRANSFORMATION_SCHEMA,
         "provenance": {"type": "object"},
     },
-    "additionalProperties": True,
+    "additionalProperties": False,
 }
 
 SPEC_SCHEMA = {
@@ -65,12 +65,29 @@ SPEC_SCHEMA = {
                     "stage_name": {"type": "string", "minLength": 1},
                     "stage_type": {"type": "string", "enum": ["ingest", "transform"]},
                     "target": {"type": "object", "required": ["table_name"],
-                               "properties": {"table_name": {"type": "string", "minLength": 1}},
+                               "properties": {
+                                   "table_name": {"type": "string", "minLength": 1},
+                                   "format": {"type": "string", "enum": ["delta"]},
+                                   "write_mode": {"type": "string", "enum": ["append", "overwrite", "merge"]},
+                                   "merge_keys": {"type": "array", "items": {"type": "string"}},
+                               },
                                "additionalProperties": True},
-                    "mappings": {"type": "array", "items": _MAPPING_SCHEMA},
-                    "data_expectations": {"type": "array", "items": {"type": "object"}},
+                    "mappings": {"type": "array", "minItems": 1, "items": _MAPPING_SCHEMA},
+                    "data_expectations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["expectation_name", "rule", "action_on_failure"],
+                            "properties": {
+                                "expectation_name": {"type": "string", "minLength": 1},
+                                "rule": {"type": "string", "minLength": 1},
+                                "action_on_failure": {"type": "string", "enum": ["drop_row", "quarantine", "fail_pipeline"]},
+                            },
+                            "additionalProperties": False,
+                        },
+                    },
                 },
-                "additionalProperties": True,
+                "additionalProperties": False,
             },
         },
         "test_data_specifications": {"type": "object"},
@@ -78,7 +95,7 @@ SPEC_SCHEMA = {
         "workflow_specification": {"type": "object"},
         "issues": {"type": "array", "items": {"type": "object"}},
     },
-    "additionalProperties": True,
+    "additionalProperties": False,
 }
 
 

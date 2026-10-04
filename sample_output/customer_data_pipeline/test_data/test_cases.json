@@ -1,0 +1,850 @@
+[
+  {
+    "tc_id": "TC-01",
+    "scenario": "Happy path \u2014 all fields present, valid, and well-formed",
+    "edge_case": "happy_path",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0001",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0001",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-02",
+    "scenario": "Expectation \"customer_id_not_null\" violated: customer_id IS_NOT_NULL",
+    "edge_case": "expectation_quarantine",
+    "expected_disposition": "quarantine",
+    "input_row": {
+      "cust_id": null,
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {}
+  },
+  {
+    "tc_id": "TC-03",
+    "scenario": "Expectation \"account_balance_non_negative\" violated: account_balance >=",
+    "edge_case": "expectation_drop_row",
+    "expected_disposition": "dropped",
+    "input_row": {
+      "cust_id": "PK-0002",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "-100",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {}
+  },
+  {
+    "tc_id": "TC-04",
+    "scenario": "customer_id: padded value \u2192 trimmed",
+    "edge_case": "whitespace",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "  CUSTOMER_I-PAD  ",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "CUSTOMER_I-PAD",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-05",
+    "scenario": "customer_id: very long value (255 chars)",
+    "edge_case": "boundary",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-06",
+    "scenario": "customer_id: numeric-looking value cast to string",
+    "edge_case": "type_cast",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "12345",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "12345",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-07",
+    "scenario": "full_name: fname is null \u2192 remaining field(s) only",
+    "edge_case": "null_optional",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0003",
+      "fname": null,
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0003",
+      "full_name": "Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-08",
+    "scenario": "full_name: lname is null \u2192 remaining field(s) only",
+    "edge_case": "null_optional",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0004",
+      "fname": "Priya",
+      "lname": null,
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0004",
+      "full_name": "Priya",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-09",
+    "scenario": "full_name: all source fields null \u2192 null",
+    "edge_case": "null_optional",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0005",
+      "fname": null,
+      "lname": null,
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0005",
+      "full_name": null,
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-10",
+    "scenario": "full_name: special characters (accents, apostrophes, hyphens)",
+    "edge_case": "special_chars",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0006",
+      "fname": "Jos\u00e9",
+      "lname": "O'Brien",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0006",
+      "full_name": "Jos\u00e9 O'Brien",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-11",
+    "scenario": "signup_date: source format 'yyyyMMdd'",
+    "edge_case": "date_format",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0007",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0007",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-12",
+    "scenario": "signup_date: source format 'yyyy-MM-dd'",
+    "edge_case": "date_format",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0008",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "2023-01-15",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0008",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-13",
+    "scenario": "signup_date: source format 'MM/dd/yyyy'",
+    "edge_case": "date_format",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0009",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "01/15/2023",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0009",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-14",
+    "scenario": "signup_date: unparseable value",
+    "edge_case": "type_mismatch",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0010",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "not-a-date",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0010",
+      "full_name": "Priya Nair",
+      "signup_date": null,
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-15",
+    "scenario": "signup_date: empty value",
+    "edge_case": "null_optional",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0011",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0011",
+      "full_name": "Priya Nair",
+      "signup_date": null,
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-16",
+    "scenario": "signup_date: invalid month (13)",
+    "edge_case": "type_mismatch",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0012",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20231301",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0012",
+      "full_name": "Priya Nair",
+      "signup_date": null,
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-17",
+    "scenario": "account_balance: zero boundary",
+    "edge_case": "boundary",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0013",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "0",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0013",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "0.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-18",
+    "scenario": "account_balance: null \u2192 default",
+    "edge_case": "null_optional",
+    "expected_disposition": "dropped",
+    "input_row": {
+      "cust_id": "PK-0014",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": null,
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {}
+  },
+  {
+    "tc_id": "TC-19",
+    "scenario": "account_balance: negative value",
+    "edge_case": "boundary",
+    "expected_disposition": "dropped",
+    "input_row": {
+      "cust_id": "PK-0015",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "-500",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {}
+  },
+  {
+    "tc_id": "TC-20",
+    "scenario": "account_balance: large value",
+    "edge_case": "boundary",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0016",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "999999900",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0016",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "999999900.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-21",
+    "scenario": "account_balance: non-numeric \u2192 default",
+    "edge_case": "type_mismatch",
+    "expected_disposition": "dropped",
+    "input_row": {
+      "cust_id": "PK-0017",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "abc",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {}
+  },
+  {
+    "tc_id": "TC-22",
+    "scenario": "account_balance: empty string \u2192 default",
+    "edge_case": "type_mismatch",
+    "expected_disposition": "dropped",
+    "input_row": {
+      "cust_id": "PK-0018",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {}
+  },
+  {
+    "tc_id": "TC-23",
+    "scenario": "is_active: lowercase 'Y'",
+    "edge_case": "case_sensitivity",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0019",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0019",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-24",
+    "scenario": "is_active: uppercase 'Y'",
+    "edge_case": "case_sensitivity",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0020",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0020",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-25",
+    "scenario": "is_active: lowercase 'N'",
+    "edge_case": "case_sensitivity",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0021",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "n",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0021",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "False",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-26",
+    "scenario": "is_active: uppercase 'N'",
+    "edge_case": "case_sensitivity",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0022",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "N",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0022",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "False",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-27",
+    "scenario": "is_active: lowercase 'y'",
+    "edge_case": "case_sensitivity",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0023",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0023",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-28",
+    "scenario": "is_active: uppercase 'y'",
+    "edge_case": "case_sensitivity",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0024",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0024",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-29",
+    "scenario": "is_active: lowercase 'n'",
+    "edge_case": "case_sensitivity",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0025",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "n",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0025",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "False",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-30",
+    "scenario": "is_active: uppercase 'n'",
+    "edge_case": "case_sensitivity",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0026",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "N",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0026",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "False",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-31",
+    "scenario": "is_active: empty \u2192 null",
+    "edge_case": "null_optional",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0027",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0027",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": null,
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-32",
+    "scenario": "is_active: unexpected value \u2192 null",
+    "edge_case": "type_mismatch",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0028",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "ZZ",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0028",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": null,
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-33",
+    "scenario": "account_closed_date: source format 'yyyy-MM-dd'",
+    "edge_case": "date_format",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0029",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "PK-0029",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-34",
+    "scenario": "account_closed_date: unparseable value",
+    "edge_case": "type_mismatch",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0030",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "not-a-date"
+    },
+    "expected_row": {
+      "customer_id": "PK-0030",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": null
+    }
+  },
+  {
+    "tc_id": "TC-35",
+    "scenario": "account_closed_date: empty value",
+    "edge_case": "null_optional",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0031",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": ""
+    },
+    "expected_row": {
+      "customer_id": "PK-0031",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": null
+    }
+  },
+  {
+    "tc_id": "TC-36",
+    "scenario": "account_closed_date: invalid month (13)",
+    "edge_case": "type_mismatch",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "PK-0032",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "20231301"
+    },
+    "expected_row": {
+      "customer_id": "PK-0032",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": null
+    }
+  },
+  {
+    "tc_id": "TC-37",
+    "scenario": "Duplicate primary key (first insert) \u2014 should be deduplicated away",
+    "edge_case": "duplicate",
+    "expected_disposition": "dropped",
+    "input_row": {
+      "cust_id": "DUP-0001",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {}
+  },
+  {
+    "tc_id": "TC-38",
+    "scenario": "Duplicate primary key (second / latest insert) \u2014 survives dedup",
+    "edge_case": "duplicate",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "DUP-0001",
+      "fname": "Priya",
+      "lname": "Nair",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "DUP-0001",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  },
+  {
+    "tc_id": "TC-39",
+    "scenario": "Whitespace/padding on all string-ish fields \u2014 trim should be applied",
+    "edge_case": "whitespace",
+    "expected_disposition": "silver",
+    "input_row": {
+      "cust_id": "  CUSTOMER-0001  ",
+      "fname": "  Priya  ",
+      "lname": "  Nair  ",
+      "signup_dt_raw": "20230115",
+      "bal_cents_raw": "125050",
+      "active_flag_raw": "Y",
+      "acct_close_dt_raw": "2023-01-15"
+    },
+    "expected_row": {
+      "customer_id": "CUSTOMER-0001",
+      "full_name": "Priya Nair",
+      "signup_date": "2023-01-15",
+      "account_balance": "125050.00",
+      "is_active": "True",
+      "account_closed_date": "2023-01-15"
+    }
+  }
+]

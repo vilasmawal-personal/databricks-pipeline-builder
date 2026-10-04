@@ -1,0 +1,33 @@
+_tc_id,_scenario,_edge_case,customer_id,full_name,signup_date,account_balance,is_active,account_closed_date
+TC-01,"Happy path — all fields present, valid, and well-formed",happy_path,PK-0001,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-04,customer_id: padded value → trimmed,whitespace,CUSTOMER_I-PAD,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-05,customer_id: very long value (255 chars),boundary,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-06,customer_id: numeric-looking value cast to string,type_cast,12345,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-07,full_name: fname is null → remaining field(s) only,null_optional,PK-0003,Nair,2023-01-15,125050.00,True,2023-01-15
+TC-08,full_name: lname is null → remaining field(s) only,null_optional,PK-0004,Priya,2023-01-15,125050.00,True,2023-01-15
+TC-09,full_name: all source fields null → null,null_optional,PK-0005,,2023-01-15,125050.00,True,2023-01-15
+TC-10,"full_name: special characters (accents, apostrophes, hyphens)",special_chars,PK-0006,José O'Brien,2023-01-15,125050.00,True,2023-01-15
+TC-11,signup_date: source format 'yyyyMMdd',date_format,PK-0007,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-12,signup_date: source format 'yyyy-MM-dd',date_format,PK-0008,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-13,signup_date: source format 'MM/dd/yyyy',date_format,PK-0009,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-14,signup_date: unparseable value,type_mismatch,PK-0010,Priya Nair,,125050.00,True,2023-01-15
+TC-15,signup_date: empty value,null_optional,PK-0011,Priya Nair,,125050.00,True,2023-01-15
+TC-16,signup_date: invalid month (13),type_mismatch,PK-0012,Priya Nair,,125050.00,True,2023-01-15
+TC-17,account_balance: zero boundary,boundary,PK-0013,Priya Nair,2023-01-15,0.00,True,2023-01-15
+TC-20,account_balance: large value,boundary,PK-0016,Priya Nair,2023-01-15,999999900.00,True,2023-01-15
+TC-23,is_active: lowercase 'Y',case_sensitivity,PK-0019,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-24,is_active: uppercase 'Y',case_sensitivity,PK-0020,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-25,is_active: lowercase 'N',case_sensitivity,PK-0021,Priya Nair,2023-01-15,125050.00,False,2023-01-15
+TC-26,is_active: uppercase 'N',case_sensitivity,PK-0022,Priya Nair,2023-01-15,125050.00,False,2023-01-15
+TC-27,is_active: lowercase 'y',case_sensitivity,PK-0023,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-28,is_active: uppercase 'y',case_sensitivity,PK-0024,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-29,is_active: lowercase 'n',case_sensitivity,PK-0025,Priya Nair,2023-01-15,125050.00,False,2023-01-15
+TC-30,is_active: uppercase 'n',case_sensitivity,PK-0026,Priya Nair,2023-01-15,125050.00,False,2023-01-15
+TC-31,is_active: empty → null,null_optional,PK-0027,Priya Nair,2023-01-15,125050.00,,2023-01-15
+TC-32,is_active: unexpected value → null,type_mismatch,PK-0028,Priya Nair,2023-01-15,125050.00,,2023-01-15
+TC-33,account_closed_date: source format 'yyyy-MM-dd',date_format,PK-0029,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-34,account_closed_date: unparseable value,type_mismatch,PK-0030,Priya Nair,2023-01-15,125050.00,True,
+TC-35,account_closed_date: empty value,null_optional,PK-0031,Priya Nair,2023-01-15,125050.00,True,
+TC-36,account_closed_date: invalid month (13),type_mismatch,PK-0032,Priya Nair,2023-01-15,125050.00,True,
+TC-38,Duplicate primary key (second / latest insert) — survives dedup,duplicate,DUP-0001,Priya Nair,2023-01-15,125050.00,True,2023-01-15
+TC-39,Whitespace/padding on all string-ish fields — trim should be applied,whitespace,CUSTOMER-0001,Priya Nair,2023-01-15,125050.00,True,2023-01-15

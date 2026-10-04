@@ -1,0 +1,263 @@
+{
+  "pipeline_metadata": {
+    "pipeline_name": "Customer Data Pipeline",
+    "description": "Ingests raw CRM customer CSV exports and produces a clean, standardized customer dimension table in the lakehouse.",
+    "source_system": "CRM Export",
+    "target_catalog": "main",
+    "target_schema": "silver",
+    "target_table": "dim_customers",
+    "target_format": "delta",
+    "write_mode": "merge",
+    "merge_keys": [
+      "customer_id"
+    ],
+    "deployment_environments": [
+      "dev",
+      "staging",
+      "prod"
+    ],
+    "infrastructure": {
+      "platform": "Databricks",
+      "spark_version": "15.4"
+    },
+    "source_configuration": {
+      "type": "csv",
+      "location": "/mnt/raw/crm_customers/",
+      "delimiter": ",",
+      "header": true,
+      "encoding": "utf-8"
+    }
+  },
+  "source_configuration": {
+    "format": "csv",
+    "location": "/mnt/raw/crm_customers/",
+    "delimiter": ",",
+    "has_header": true,
+    "encoding": "utf-8"
+  },
+  "pipeline_stages": [
+    {
+      "stage_name": "ingest_raw_crm",
+      "stage_type": "ingest",
+      "target": {
+        "table_name": "raw_crm_customers",
+        "format": "delta"
+      },
+      "mappings": [
+        {
+          "target_field": "cust_id",
+          "source_fields": [
+            "cust_id"
+          ],
+          "target_data_type": "string",
+          "transformation": {
+            "type": "direct",
+            "params": {}
+          }
+        },
+        {
+          "target_field": "fname",
+          "source_fields": [
+            "fname"
+          ],
+          "target_data_type": "string",
+          "transformation": {
+            "type": "direct",
+            "params": {}
+          }
+        },
+        {
+          "target_field": "lname",
+          "source_fields": [
+            "lname"
+          ],
+          "target_data_type": "string",
+          "transformation": {
+            "type": "direct",
+            "params": {}
+          }
+        },
+        {
+          "target_field": "signup_dt_raw",
+          "source_fields": [
+            "signup_dt"
+          ],
+          "target_data_type": "string",
+          "transformation": {
+            "type": "direct",
+            "params": {}
+          }
+        },
+        {
+          "target_field": "bal_cents_raw",
+          "source_fields": [
+            "bal_cents"
+          ],
+          "target_data_type": "string",
+          "transformation": {
+            "type": "direct",
+            "params": {}
+          }
+        },
+        {
+          "target_field": "active_flag_raw",
+          "source_fields": [
+            "active_flag"
+          ],
+          "target_data_type": "string",
+          "transformation": {
+            "type": "direct",
+            "params": {}
+          }
+        },
+        {
+          "target_field": "acct_close_dt_raw",
+          "source_fields": [
+            "acct_close_dt"
+          ],
+          "target_data_type": "string",
+          "transformation": {
+            "type": "direct",
+            "params": {}
+          }
+        }
+      ]
+    },
+    {
+      "stage_name": "transform_customer_dim",
+      "stage_type": "transform",
+      "target": {
+        "table_name": "dim_customers",
+        "format": "delta"
+      },
+      "mappings": [
+        {
+          "target_field": "customer_id",
+          "source_fields": [
+            "cust_id"
+          ],
+          "target_data_type": "string",
+          "transformation": {
+            "type": "cast",
+            "params": {
+              "to_type": "string"
+            }
+          }
+        },
+        {
+          "target_field": "full_name",
+          "source_fields": [
+            "fname",
+            "lname"
+          ],
+          "target_data_type": "string",
+          "transformation": {
+            "type": "concat",
+            "params": {
+              "separator": " "
+            }
+          }
+        },
+        {
+          "target_field": "signup_date",
+          "source_fields": [
+            "signup_dt_raw"
+          ],
+          "target_data_type": "date",
+          "transformation": {
+            "type": "conditional_date",
+            "params": {
+              "source_formats": [
+                "yyyyMMdd",
+                "yyyy-MM-dd",
+                "MM/dd/yyyy"
+              ]
+            }
+          }
+        },
+        {
+          "target_field": "account_balance",
+          "source_fields": [
+            "bal_cents_raw"
+          ],
+          "target_data_type": "decimal(18,2)",
+          "transformation": {
+            "type": "conditional",
+            "params": {
+              "condition": "is_numeric(bal_cents_raw) AND bal_cents_raw IS NOT NULL",
+              "true_value": "cast(bal_cents_raw as decimal(18,2)) / 100",
+              "false_value": "0.00"
+            }
+          }
+        },
+        {
+          "target_field": "is_active",
+          "source_fields": [
+            "active_flag_raw"
+          ],
+          "target_data_type": "boolean",
+          "transformation": {
+            "type": "lookup",
+            "params": {
+              "value_map": {
+                "Y": true,
+                "N": false,
+                "y": true,
+                "n": false
+              },
+              "default": null
+            }
+          }
+        },
+        {
+          "target_field": "account_closed_date",
+          "source_fields": [
+            "acct_close_dt_raw"
+          ],
+          "target_data_type": "date",
+          "transformation": {
+            "type": "conditional_date",
+            "params": {
+              "source_formats": [
+                "yyyy-MM-dd"
+              ],
+              "null_values": [
+                "N/A",
+                ""
+              ]
+            }
+          }
+        }
+      ],
+      "data_expectations": [
+        {
+          "expectation_name": "customer_id_not_null",
+          "rule": "customer_id IS NOT NULL",
+          "action_on_failure": "quarantine"
+        },
+        {
+          "expectation_name": "account_balance_non_negative",
+          "rule": "account_balance >= 0",
+          "action_on_failure": "drop_row"
+        }
+      ]
+    }
+  ],
+  "issues": [
+    {
+      "severity": "warning",
+      "field": "account_balance",
+      "message": "Source requirement specifies 'decimal' without precision but implies two-decimal default (0.00). Assumed type decimal(18,2) for implementation."
+    },
+    {
+      "severity": "info",
+      "field": "signup_date",
+      "message": "Source signup_dt has mixed formats (yyyyMMdd, yyyy-MM-dd, MM/dd/yyyy). Conditional parsing logic applied. Ambiguity in edge cases (e.g., 01/02/2023) resolved by order of source_formats list."
+    },
+    {
+      "severity": "info",
+      "field": "account_closed_date",
+      "message": "Source acct_close_dt may contain 'N/A' or empty strings. Logic handles these as null. Other non-date string values will result in parse errors unless handled by broader conditional logic not explicitly defined."
+    }
+  ]
+}

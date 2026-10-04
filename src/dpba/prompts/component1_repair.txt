@@ -17,7 +17,13 @@ Rules:
 1. Return ONLY a valid JSON object. No explanation, no markdown fences.
 2. Every pipeline_stages entry must have stage_name and stage_type.
 3. The first stage must be stage_type "ingest"; all others must be "transform".
-4. Every mapping must have target_field, source_fields (array), and a transformation object with type and params.
-5. Supported transformation types: direct, cast, concat, conditional, date_format, conditional_date, lookup, split.
-6. Never include generated_code, python_code, pyspark_code, sql_code, or executable fields.
-7. Flag uncertain requirements in the issues array instead of guessing.
+4. Each transform stage must include at least one field mapping. Put quality expectations on the transform stage that produces their referenced fields; do not create a separate expectations-only/filter-only stage.
+5. Every mapping must have target_field, source_fields (array), and a transformation object with type and params.
+6. Supported transformation types: direct, cast, concat, conditional, date_format, conditional_date, lookup, split.
+7. Never include generated_code, python_code, pyspark_code, sql_code, or executable fields.
+8. Flag uncertain requirements in the issues array instead of guessing.
+9. Every data expectation must use `expectation_name`, a supported simple `rule`, and `action_on_failure`; do not use `RAW_SQL_SHIM`, `condition`, or a custom SQL field.
+10. A target with write_mode "merge" must include merge_keys. Use the primary key stated in the original requirements.
+11. Use `conditional` only for numeric targets; use `lookup` for enumerated translations such as Y/N to booleans.
+12. For date targets, list accepted `source_formats` and omit `output_format`; `output_format` is allowed only when the target type is `string`.
+13. For the monetary balance with a two-decimal default, use target_data_type `decimal(18,2)` (not bare `decimal`) and record the precision choice as a warning-level assumption in `issues`.
