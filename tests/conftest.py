@@ -2,7 +2,7 @@
 Shared pytest fixtures for the DPBA test suite.
 
 Puts dpba/ on sys.path (the modules under test use plain top-level imports,
-e.g. `from mapping_parser import ...`, not a package), and parametrizes
+e.g. `from dpba.models.pipeline_spec import ...`, not a package), and parametrizes
 `sample_spec` / `sample_spec_path` over every committed mapping JSON in
 sample_specs/ — so every regression test here automatically runs against
 all shipped pipeline shapes (2-stage legacy, 2-stage AMEREN, 3-stage

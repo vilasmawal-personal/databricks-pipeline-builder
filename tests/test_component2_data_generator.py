@@ -24,7 +24,8 @@ from component2_data_generator import (
     DataGenerator, _compute_raw_expected, _rule_satisfied,
     write_synthetic_input_csv, write_expected_output_csv,
 )
-from mapping_parser import FieldMapping, T_CONDITIONAL, T_CONCAT, T_LOOKUP, T_DATE_FORMAT
+from dpba.models.pipeline_spec import FieldMapping
+from mapping_parser import T_CONDITIONAL, T_CONCAT, T_LOOKUP, T_DATE_FORMAT, T_CAST
 
 from conftest import raw_pk_source
 
@@ -115,13 +116,34 @@ class TestDispositionResolution:
                 )
 
 
-class TestExpectedValueMirror:
     """_compute_raw_expected is the single source of truth shared with
     Component 3's SnippetLibrary — these spot-check it against hand-computed
     values so the two can't silently drift apart."""
 
+def _fm(**overrides) -> FieldMapping:
+    defaults = dict(
+        target_field="x", source_fields=["y"], target_data_type="string",
+        is_nullable=True, default_value=None, transformation_type=T_CAST,
+        transformation_logic="", transformation_params={},
+    )
+    defaults.update(overrides)
+    from dpba.models.pipeline_spec import TransformationDef
+    return FieldMapping(
+        target_field=defaults["target_field"],
+        source_fields=defaults["source_fields"],
+        target_type=defaults["target_data_type"],
+        is_nullable=defaults["is_nullable"],
+        default_value=defaults["default_value"],
+        transformation=TransformationDef(
+            type=defaults["transformation_type"],
+            params=defaults["transformation_params"]
+        )
+    )
+
+class TestExpectedValueMirror:
+
     def test_conditional_divides_by_the_declared_divisor(self):
-        fm = FieldMapping(
+        fm = _fm(
             target_field="account_balance", source_fields=["balance_cents"],
             target_data_type="decimal(18,2)", is_nullable=True, default_value=0.0,
             transformation_type=T_CONDITIONAL, transformation_logic="",
@@ -133,7 +155,7 @@ class TestExpectedValueMirror:
         assert _compute_raw_expected(fm, {"balance_cents": None}) is None
 
     def test_concat_matches_concat_ws_null_skipping_semantics(self):
-        fm = FieldMapping(
+        fm = _fm(
             target_field="full_name", source_fields=["first_name", "last_name"],
             target_data_type="string", is_nullable=True, default_value=None,
             transformation_type=T_CONCAT, transformation_logic="",
@@ -144,7 +166,7 @@ class TestExpectedValueMirror:
         assert _compute_raw_expected(fm, {"first_name": None, "last_name": None}) is None
 
     def test_lookup_is_case_insensitive_by_default(self):
-        fm = FieldMapping(
+        fm = _fm(
             target_field="account_status", source_fields=["acct_status_flag"],
             target_data_type="boolean", is_nullable=False, default_value=None,
             transformation_type=T_LOOKUP, transformation_logic="",
@@ -155,7 +177,7 @@ class TestExpectedValueMirror:
         assert _compute_raw_expected(fm, {"acct_status_flag": "X"}) is None
 
     def test_date_format_tries_each_source_format_in_order(self):
-        fm = FieldMapping(
+        fm = _fm(
             target_field="signup_date", source_fields=["signup_dt"],
             target_data_type="date", is_nullable=True, default_value=None,
             transformation_type=T_DATE_FORMAT, transformation_logic="",

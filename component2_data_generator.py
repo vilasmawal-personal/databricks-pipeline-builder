@@ -61,8 +61,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
+from dpba.models.pipeline_spec import (
+    FieldMapping, PipelineSpec, PipelineStage, DataExpectation
+)
 from mapping_parser import (
-    FieldMapping, PipelineSpec, PipelineStage, DataExpectation, parse_mapping_json, print_spec_table,
+    parse_mapping_json, print_spec_table,
     T_DIRECT, T_CAST, T_CONCAT, T_CONDITIONAL, T_DATE_FORMAT, T_CONDITIONAL_DATE,
     T_LOOKUP, T_SPLIT,
 )
@@ -165,10 +168,7 @@ def _compute_raw_expected(fm: FieldMapping, raws: dict[str, Any]) -> Any:
         return sep.join(str(v).strip() for v in vals if v is not None)
 
     if t == T_CONDITIONAL:
-        divisor = fm.transformation_params.get("divisor")
-        if divisor is None:
-            m = re.search(r"/\s*(\d+)", fm.transformation_logic)
-            divisor = int(m.group(1)) if m else (100 if "cent" in fm.transformation_logic.lower() else 1)
+        divisor = fm.transformation_params.get("divisor", 1)
         v = raws.get(fm.primary_source)
         try:
             return round(int(str(v)) / divisor, 2)

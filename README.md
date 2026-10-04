@@ -1,80 +1,96 @@
 # Databricks Pipeline Builder Assistant (DPBA)
 
-DPBA turns a mapping or business requirements document into a validated, deterministic Databricks Asset Bundle. Component 1 uses a local Ollama model to interpret prose as a structured mapping. Components 2 and 3 then produce test fixtures, PySpark notebooks, integration assertions, and job/DAB YAML without using an LLM.
+The Databricks Pipeline Builder Assistant is a complete end-to-end framework for automatically designing and building data pipelines.
+
+It leverages an LLM (such as an Ollama local model) to read a natural-language requirement document and extract a structured **Intermediate Representation (IR)**. This canonical IR is then used deterministically to:
+1. Generate test data and cases.
+2. Build Databricks Asset Bundles (DABs), Delta Live Tables / Job YAMLs, and PySpark notebooks.
+
+## Architecture
 
 ```text
-Requirements document ──> Ollama (structured mapping only) ──> validation
-                                                        ├──> deterministic fixtures
-                                                        └──> deterministic notebooks + DAB job
+  Natural Language Document (Requirements)
+             |
+             v
++-----------------------------+
+|        Component 1          |
+|    (LLM Mapping Agent)      |
++-----------------------------+
+             |
+             v
+   Canonical PipelineSpec (JSON IR)
+             |
+      +------+------+
+      |             |
+      v             v
++-----------+ +-----------+
+|Component 2| |Component 3|
+| Data Gen  | | DAB/Code  |
++-----------+ +-----------+
 ```
 
-The model does not generate executable Python, SQL, or YAML. Ambiguity belongs in the mapping's `issues` array and should be resolved before deployment. Existing legacy `target_configurations` plus `mappings` JSON is supported.
+1. **Component 1**: Reads natural language requirements and outputs a structured PipelineSpec JSON.
+2. **Component 2**: Reads the JSON, generates synthetic DataFrames, and produces exhaustive edge cases (nulls, boundary cases, etc.) based on data expectations.
+3. **Component 3**: Reads the JSON and generates 100% Python-based Databricks PySpark notebooks, testing fixtures, and deployment YAMLs.
 
-## Components
+All code generation in Component 3 is **pure Python / PySpark**. Component 3 does not generate SQL files; it natively constructs Spark DataFrame operations using a deterministic transformation registry (`SnippetLibrary`).
 
-- **Component 1:** local Ollama interpretation with a JSON Schema constrained response and strict shape validation.
-- **Mapping validation:** parses the structured or legacy mapping and rejects unsupported transformations. Component 3's expectation-rule grammar is deliberately small and deterministic.
-- **Component 2:** systematically creates happy-path and transformation edge cases, expected outcomes, CSV files, JSON reports, and a fixture-loading notebook.
-- **Component 3:** compiles the ordered stage chain into ingest/transform notebooks, integration tests, a dynamic task DAG, and Databricks Asset Bundle YAML.
+## Local Setup with Ollama
 
-The same declarative `PipelineSpec` feeds Components 2 and 3. Component 2's expected-value functions and Component 3's Spark snippets currently live in their respective modules; tests exercise the supported semantics to guard against drift.
+You can run this entirely locally, ensuring zero data egress to external APIs.
 
-## Requirements and installation
+### 1. Prerequisites
 
-Use Python 3.11 or newer. Install the package and development dependencies:
+1. **Python 3.9+**
+2. **Ollama**: Download and install from [ollama.com](https://ollama.com)
+3. **Dependencies**:
+   ```bash
+   pip install pydantic pytest pyyaml
+   ```
+
+### 2. Prepare the LLM
+
+Component 1 works best with models trained on structured extraction.
+Start your local Ollama server, and pull a strong local model (e.g. `qwen2.5-coder:32b`, `llama3.1:8b`, or `qwen2.5:7b`):
 
 ```bash
-python -m pip install -e '.[dev]'
+ollama run qwen2.5-coder:7b
 ```
 
-Install and start the company's local Ollama deployment separately, and ensure the configured model is available. DPBA never falls back to a hosted LLM.
+### 3. Environment Variables
+
+Tell DPBA to point to your local Ollama instance:
 
 ```bash
 export OLLAMA_BASE_URL="http://localhost:11434"
-export OLLAMA_MODEL="qwen3.6"
+export OLLAMA_MODEL="qwen2.5-coder:7b"
+export DPBA_LLM_MAX_RETRIES="3"
 ```
 
-The endpoint and model can be changed with those environment variables. `OUTPUT_DIR` and `LOG_LEVEL` are also configurable. `.env.example` documents the variables; the application reads environment variables directly and does not require a dotenv dependency.
+### 4. Running the Pipeline Builder
 
-## CLI
+You can use the DPBA runner to execute all components end-to-end, passing in a Markdown/Text document containing the requirements:
 
 ```bash
-python -m dpba generate requirements.md --output pipeline_spec.json
-python -m dpba validate pipeline_spec.json
-python -m dpba build pipeline_spec.json --output ./generated/pipeline
-python -m dpba test pipeline_spec.json --output ./generated
-python -m dpba run requirements.md --output ./generated
+python dpba_runner.py --requirements my_pipeline_requirements.md --output-dir ./build
 ```
 
-`generate` sends only a text/Markdown input document to the configured local Ollama endpoint and writes a structured JSON mapping. Passing a JSON mapping to any command skips the model. `run` writes Component 2 output under `test_data/` and the deployable bundle under `pipeline/`, then parses all generated Python and YAML before reporting success. `build` creates the pipeline bundle; `test` creates deterministic local fixture artifacts. Existing orchestration remains available as `python dpba_runner.py mapping.json ./output --ci`.
-
-## Mapping JSON
-
-The preferred shape has `pipeline_metadata`, `source_configuration`, and an ordered `pipeline_stages` array. The first stage is ingestion; remaining stages are transforms. Each transform maps named source fields into target fields with a supported transformation type and typed `params`. See [`sample_specs/customer_medallion_pipeline.json`](sample_specs/customer_medallion_pipeline.json) for a three-stage example and [`sample_specs/customer_pipeline.json`](sample_specs/customer_pipeline.json) for the legacy-compatible example.
-
-Supported deterministic transformations are `direct`, `cast`, `concat`, `conditional`, `date_format`, `conditional_date`, `lookup`, and `split`. `logic` is documentation only; it is never executed. Expectation rules support field null checks and numeric comparisons. Unsupported rules should be fixed explicitly rather than interpreted as arbitrary SQL.
-
-The generated bundle includes `databricks.yml`, `resources/pipeline_job.yml`, and notebooks for fixture loading, ingest, each transform stage, and integration tests. Deploy from the generated bundle directory with the Databricks CLI:
+If you already have a structured JSON (like the provided recommended template), you can skip Component 1 (the LLM extraction phase) and directly generate code:
 
 ```bash
-databricks bundle validate
-databricks bundle deploy -t dev
-databricks bundle run customer_pipeline_job -t dev
+python dpba_runner.py --mapping my_pipeline_mapping.json --output-dir ./build
 ```
 
-Review cloud-specific node types, workspace configuration, locations, catalog/schema permissions, and job notifications before production deployment.
+### 5. Running the Tests
 
-## Tests and Ollama checks
+To ensure the framework is functioning perfectly after making modifications:
 
 ```bash
-python -m pytest
+python -m pytest -v tests/
 ```
 
-The normal suite uses `FakeLLMClient` and requires no Ollama server. Ollama connectivity can be checked by running `python -m dpba generate requirements.md`; no model call is made for JSON input. Generated notebooks are AST-parsed and generated YAML is parsed as part of `run` and in the test suite.
+## Recommended Pipeline Spec JSON
 
-## Troubleshooting
+The JSON format the system operates on (Canonical IR) uses strict schemas validated via Pydantic. If you want to bypass the LLM and provide the mapping manually, you should use a structure matching the `PipelineSpec` model.
 
-- **Connection refused / model missing:** check `OLLAMA_BASE_URL`, service availability, and `OLLAMA_MODEL`; DPBA reports the local endpoint failure and stops.
-- **Invalid structured mapping:** inspect required stage names, target fields, transformation names/parameters, expectation grammar, and ambiguity issues. DPBA does not repair by guessing.
-- **Bundle validation fails:** check the workspace host, cloud-specific cluster node type, Unity Catalog permissions, source paths, and the generated target variables.
-- **No live Databricks integration run:** local generation validates syntax and bundle structure. Executing notebooks against Unity Catalog still requires an appropriately configured Databricks workspace.
+See `docs/recommended_template.json` for the template.

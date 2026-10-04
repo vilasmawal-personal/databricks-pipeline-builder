@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: databricks-pipeline-builder-assistant
+Version: 0.3.0
+Summary: Local-LLM-assisted deterministic Databricks pipeline generator
+Requires-Python: >=3.9
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: pydantic>=2.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"

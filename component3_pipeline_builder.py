@@ -54,9 +54,11 @@ import sys
 import textwrap
 from typing import Any, Optional
 
+from dpba.models.pipeline_spec import (
+    FieldMapping, PipelineSpec, PipelineStage, DataExpectation
+)
 from mapping_parser import (
-    FieldMapping, PipelineSpec, PipelineStage, DataExpectation, parse_mapping_json, print_spec_table,
-    parse_expectation_rule,
+    parse_mapping_json, print_spec_table,
     T_DIRECT, T_CAST, T_CONCAT, T_CONDITIONAL, T_DATE_FORMAT, T_CONDITIONAL_DATE,
     T_LOOKUP, T_SPLIT,
 )
@@ -159,10 +161,7 @@ class SnippetLibrary:
         """Numeric scale transform: value / divisor when present, else null
         (default_value substitution happens in the universal _apply_default pass)."""
         src = fm.primary_source
-        divisor = fm.transformation_params.get("divisor")
-        if divisor is None:
-            m = re.search(r"/\s*(\d+)", fm.transformation_logic)
-            divisor = int(m.group(1)) if m else (100 if "cent" in fm.transformation_logic.lower() else 1)
+        divisor = fm.transformation_params.get("divisor", 1)
         spark_type = fm.spark_type_literal
         return (
             f'# Rule: {src} → {fm.target_field} (conditional numeric scale, ÷{divisor})\n'

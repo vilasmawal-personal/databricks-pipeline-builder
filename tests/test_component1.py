@@ -3,43 +3,72 @@ from pathlib import Path
 from urllib.error import URLError
 
 import pytest
+from pydantic import ValidationError
 
-from dpba.component1 import MappingAgent, validate_mapping_shape, read_mapping_document
+from dpba.component1 import MappingAgent, read_mapping_document
 from dpba.config import Settings
-from dpba.exceptions import LLMResponseError, MappingValidationError
+from dpba.exceptions import LLMResponseError, LLMValidationError, MappingValidationError
 from dpba.llm import FakeLLMClient, OllamaLLMClient
+from dpba.models.pipeline_spec import PipelineSpec
 
 
 SPEC = {
-    "pipeline_metadata": {"pipeline_name": "x"},
-    "source_configuration": {"format": "csv"},
-    "pipeline_stages": [
-        {"stage_name": "raw", "stage_type": "ingest"},
-        {"stage_name": "clean", "stage_type": "transform", "mappings": []},
+    "metadata": {"pipeline_name": "x", "version": "1.0.0", "description": "desc"},
+    "sources": [
+        {"source_id": "src", "type": "file", "format": "csv", "location_ref": "/", "read_options": {}}
     ],
+    "stages": [
+        {
+            "stage_id": "raw", "inputs": ["src"], "operations": {"mappings": [], "expectations": []},
+            "output": {"table_name": "main.raw.t", "write_mode": "append"}
+        },
+        {
+            "stage_id": "clean", "inputs": ["raw"], 
+            "operations": {
+                "mappings": [
+                    {
+                        "target_field": "id",
+                        "source_fields": ["id_raw"],
+                        "target_type": "string",
+                        "is_nullable": True,
+                        "transformation": {"type": "direct", "params": {}},
+                        "provenance": {"confidence": "high"}
+                    }
+                ],
+                "expectations": []
+            },
+            "output": {"table_name": "main.clean.t", "write_mode": "append"}
+        }
+    ],
+    "environments": [],
+    "tests": {"synthetic_catalog": "main", "synthetic_schema": "test_schema", "sample_inputs": [], "sample_expected_outputs": []}
 }
 
 
 def test_mapping_agent_returns_structured_spec_and_uses_prompt():
     llm = FakeLLMClient(SPEC)
-    result = MappingAgent(llm).generate("Map source id to target id")
+    agent = MappingAgent(llm, Settings(llm_max_retries=0))
+    result = agent.generate("Map source id to target id")
     assert result == SPEC
 
 
-def test_mapping_agent_rejects_invalid_model_shape():
-    with pytest.raises(MappingValidationError, match="pipeline_stages"):
-        MappingAgent(FakeLLMClient({"pipeline_metadata": {}})).generate("requirements")
+def test_mapping_agent_rejects_invalid_model_shape_and_retries():
+    # We will pass invalid spec. FakeLLMClient will return it twice.
+    # The agent should retry and finally raise LLMValidationError.
+    invalid_spec = {"metadata": {}, "sources": [], "stages": [], "environments": [], "tests": {}}
+    llm = FakeLLMClient(invalid_spec)
+    agent = MappingAgent(llm, Settings(llm_max_retries=1))
+    
+    with pytest.raises(LLMValidationError, match="Final validation error:"):
+        agent.generate("requirements")
 
 
 def test_mapping_agent_rejects_executable_output():
     response = dict(SPEC, generated_code="print('unsafe')")
-    with pytest.raises(MappingValidationError, match="forbidden executable"):
-        MappingAgent(FakeLLMClient(response)).generate("requirements")
-
-
-def test_shape_validator_accepts_legacy_mapping():
-    legacy = {"target_configurations": {"bronze_layer": {}, "silver_layer": {}}, "mappings": []}
-    assert validate_mapping_shape(legacy) is legacy
+    llm = FakeLLMClient(response)
+    agent = MappingAgent(llm, Settings(llm_max_retries=0))
+    with pytest.raises(LLMValidationError, match="forbidden executable"):
+        agent.generate("requirements")
 
 
 def test_json_document_is_not_sent_to_llm(tmp_path):
@@ -49,11 +78,13 @@ def test_json_document_is_not_sent_to_llm(tmp_path):
 
 
 def test_settings_are_configurable(monkeypatch):
-    monkeypatch.setenv("OLLAMA_BASE_URL", "http://ollama.internal:11434/")
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://ollama.internal:11434")
     monkeypatch.setenv("OLLAMA_MODEL", "qwen3.6-custom")
+    monkeypatch.setenv("DPBA_LLM_MAX_RETRIES", "5")
     cfg = Settings.from_env()
     assert cfg.ollama_base_url == "http://ollama.internal:11434"
     assert cfg.ollama_model == "qwen3.6-custom"
+    assert cfg.llm_max_retries == 5
 
 
 def test_ollama_structured_uses_json_schema_and_parses(monkeypatch):
@@ -90,12 +121,17 @@ def test_fake_component1_output_hands_off_to_components2_and3(tmp_path):
     from mapping_parser import parse_mapping_json
 
     mapping = json.loads((Path(__file__).parents[1] / "sample_specs" / "customer_pipeline.json").read_text())
-    generated = MappingAgent(FakeLLMClient(mapping)).generate("Customer mapping")
+    
+    agent = MappingAgent(FakeLLMClient(mapping), Settings(llm_max_retries=0))
+    generated = agent.generate("Customer mapping")
+    
     spec_path = tmp_path / "spec.json"
     spec_path.write_text(json.dumps(generated))
     spec = parse_mapping_json(str(spec_path), verbose=False)
+    
     cases = run_component2(spec, str(tmp_path / "fixtures"), skip_hitl=True)
     artifacts = run_component3(spec, str(tmp_path / "bundle"), cases, skip_hitl=True)
+    
     assert cases
     assert "job_yml" in artifacts
     assert (tmp_path / "bundle" / "notebooks" / "01_ingest_bronze.py").exists()

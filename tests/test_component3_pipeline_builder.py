@@ -15,7 +15,8 @@ import ast
 import pytest
 import yaml
 
-from mapping_parser import FieldMapping, T_CAST, T_CONCAT, T_CONDITIONAL, T_LOOKUP
+from dpba.models.pipeline_spec import FieldMapping
+from mapping_parser import T_CAST, T_CONCAT, T_CONDITIONAL, T_LOOKUP
 from component2_data_generator import DataGenerator, generate_load_fixtures_notebook
 from component3_pipeline_builder import (
     SnippetLibrary, _apply_default, _get_snippet,
@@ -31,7 +32,18 @@ def _fm(**overrides) -> FieldMapping:
         transformation_logic="", transformation_params={},
     )
     defaults.update(overrides)
-    return FieldMapping(**defaults)
+    from dpba.models.pipeline_spec import TransformationDef
+    return FieldMapping(
+        target_field=defaults["target_field"],
+        source_fields=defaults["source_fields"],
+        target_type=defaults["target_data_type"],
+        is_nullable=defaults["is_nullable"],
+        default_value=defaults["default_value"],
+        transformation=TransformationDef(
+            type=defaults["transformation_type"],
+            params=defaults["transformation_params"]
+        )
+    )
 
 
 class TestSnippetLibrary:
@@ -47,18 +59,6 @@ class TestSnippetLibrary:
     def test_conditional_uses_the_declared_divisor(self):
         fm = _fm(transformation_type=T_CONDITIONAL, target_data_type="decimal(18,2)",
                  transformation_params={"divisor": 100})
-        assert "F.lit(100)" in SnippetLibrary.conditional(fm)
-
-    def test_conditional_falls_back_to_sniffing_a_literal_slash_in_logic_text(self):
-        # The fallback regex looks for a literal "/<digits>" (e.g. "balance_cents / 1000"),
-        # not a spelled-out word like "by" — matches what the shipped sample JSONs write.
-        fm = _fm(transformation_type=T_CONDITIONAL, target_data_type="decimal(18,2)",
-                 transformation_logic="balance_cents / 1000", transformation_params={})
-        assert "F.lit(1000)" in SnippetLibrary.conditional(fm)
-
-    def test_conditional_falls_back_to_100_for_bare_cents_mention(self):
-        fm = _fm(transformation_type=T_CONDITIONAL, target_data_type="decimal(18,2)",
-                 transformation_logic="amounts come through in cents", transformation_params={})
         assert "F.lit(100)" in SnippetLibrary.conditional(fm)
 
     def test_concat_all_null_check_covers_every_source_field(self):
@@ -100,8 +100,8 @@ class TestUniversalDefaultHandling:
 
 class TestDispatchRaisesOnUnsupportedType:
     def test_get_snippet_raises_for_unknown_type(self):
-        fm = _fm(transformation_type="not_a_real_type")
         with pytest.raises(ValueError):
+            fm = _fm(transformation_type="not_a_real_type")
             _get_snippet(fm)
 
 

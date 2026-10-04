@@ -1,0 +1,257 @@
+{
+  "_comment": "DPBA Recommended JSON Template — adapt to your pipeline. Delete _comment fields before use.",
+
+  "pipeline_metadata": {
+    "pipeline_name": "your_pipeline_name",
+    "description": "Short description of what this pipeline does",
+    "version": "1.0.0",
+    "domain": "your_domain"
+  },
+
+  "source_configuration": {
+    "source_system": "source_system_name",
+    "format": "csv",
+    "location": "/mnt/raw/your_source/",
+    "read_options": {
+      "header": "true",
+      "inferSchema": "false",
+      "delimiter": ","
+    }
+  },
+
+  "pipeline_stages": [
+    {
+      "_comment": "Stage 1 — Ingest: raw copy from source, no transformations",
+      "stage_name": "bronze",
+      "stage_type": "ingest",
+      "target": {
+        "table_name": "main.bronze.your_raw_table",
+        "format": "delta",
+        "write_mode": "append"
+      }
+    },
+    {
+      "_comment": "Stage 2 — Transform: field mappings, expectations, merge",
+      "stage_name": "silver",
+      "stage_type": "transform",
+      "target": {
+        "table_name": "main.silver.your_clean_table",
+        "format": "delta",
+        "write_mode": "merge",
+        "merge_keys": ["primary_key_field"]
+      },
+      "mappings": [
+        {
+          "_comment_direct": "Direct passthrough — copies the value as-is",
+          "target_field": "primary_key_field",
+          "source_fields": ["raw_pk_column"],
+          "target_data_type": "string",
+          "is_nullable": false,
+          "transformation": {
+            "type": "direct",
+            "logic": "Direct passthrough of primary key",
+            "params": {}
+          }
+        },
+        {
+          "_comment_cast": "Cast — trims whitespace and casts to the target type",
+          "target_field": "trimmed_field",
+          "source_fields": ["raw_string_column"],
+          "target_data_type": "string",
+          "is_nullable": true,
+          "transformation": {
+            "type": "cast",
+            "logic": "Trim and cast to string",
+            "params": {
+              "_optional_uppercase": "set to true for UPPER, false omit",
+              "_optional_lowercase": "set to true for lower, false omit"
+            }
+          }
+        },
+        {
+          "_comment_concat": "Concat — joins multiple source fields with a separator",
+          "target_field": "full_name",
+          "source_fields": ["first_name", "last_name"],
+          "target_data_type": "string",
+          "is_nullable": true,
+          "transformation": {
+            "type": "concat",
+            "logic": "Combine first and last name",
+            "params": {
+              "separator": " "
+            }
+          }
+        },
+        {
+          "_comment_conditional": "Conditional — numeric division (e.g. cents to dollars)",
+          "target_field": "amount_dollars",
+          "source_fields": ["amount_cents"],
+          "target_data_type": "decimal(18,2)",
+          "is_nullable": true,
+          "default_value": 0.0,
+          "transformation": {
+            "type": "conditional",
+            "logic": "Convert cents to dollars by dividing by 100",
+            "params": {
+              "divisor": 100
+            }
+          }
+        },
+        {
+          "_comment_date_format": "Date format — multi-format date parsing",
+          "target_field": "event_date",
+          "source_fields": ["raw_date_col"],
+          "target_data_type": "date",
+          "is_nullable": true,
+          "transformation": {
+            "type": "date_format",
+            "logic": "Parse date from various input formats",
+            "params": {
+              "source_formats": ["yyyyMMdd", "yyyy-MM-dd", "MM/dd/yyyy"],
+              "_optional_output_format": "yyyy-MM-dd (omit to get a date type)"
+            }
+          }
+        },
+        {
+          "_comment_conditional_date": "Conditional date — date with a sentinel null value",
+          "target_field": "closed_date",
+          "source_fields": ["close_dt"],
+          "target_data_type": "date",
+          "is_nullable": true,
+          "transformation": {
+            "type": "conditional_date",
+            "logic": "Parse date but treat N/A as null",
+            "params": {
+              "sentinel_value": "N/A",
+              "source_formats": ["yyyy-MM-dd", "yyyyMMdd"]
+            }
+          }
+        },
+        {
+          "_comment_lookup": "Lookup — maps discrete values via a value_map dictionary",
+          "target_field": "status",
+          "source_fields": ["status_code"],
+          "target_data_type": "string",
+          "is_nullable": true,
+          "transformation": {
+            "type": "lookup",
+            "logic": "Map status codes to descriptive labels",
+            "params": {
+              "value_map": {
+                "A": "ACTIVE",
+                "I": "INACTIVE",
+                "C": "CLOSED"
+              },
+              "case_insensitive": true
+            }
+          }
+        },
+        {
+          "_comment_split": "Split — extracts a segment from a delimited string",
+          "target_field": "area_code",
+          "source_fields": ["phone_number"],
+          "target_data_type": "string",
+          "is_nullable": true,
+          "transformation": {
+            "type": "split",
+            "logic": "Extract area code from phone number",
+            "params": {
+              "delimiter": "-",
+              "index": 0
+            }
+          }
+        }
+      ],
+      "data_expectations": [
+        {
+          "_comment": "fail_pipeline — immediately halts if violated (critical rule)",
+          "expectation_name": "pk_not_null",
+          "rule": "primary_key_field IS NOT NULL",
+          "action_on_failure": "fail_pipeline"
+        },
+        {
+          "_comment": "quarantine — route violating rows to a _quarantine table",
+          "expectation_name": "amount_non_negative",
+          "rule": "amount_dollars >= 0",
+          "action_on_failure": "quarantine"
+        },
+        {
+          "_comment": "drop_row — silently exclude violating rows",
+          "expectation_name": "amount_within_range",
+          "rule": "amount_dollars <= 1000000",
+          "action_on_failure": "drop_row"
+        }
+      ]
+    }
+  ],
+
+  "test_data_specifications": {
+    "_comment": "Optional seed data and Unity Catalog location for test fixtures",
+    "sample_inputs": [
+      {
+        "raw_pk_column": "PK-SEED-001",
+        "first_name": "Jane",
+        "last_name": "Doe",
+        "amount_cents": "150000",
+        "raw_date_col": "20230601",
+        "close_dt": "N/A",
+        "status_code": "A",
+        "phone_number": "555-123-4567",
+        "raw_string_column": "  hello  "
+      }
+    ],
+    "expected_outputs": [
+      {
+        "primary_key_field": "PK-SEED-001",
+        "full_name": "Jane Doe",
+        "amount_dollars": "1500.0",
+        "event_date": "2023-06-01",
+        "status": "ACTIVE",
+        "area_code": "555",
+        "trimmed_field": "hello"
+      }
+    ],
+    "unity_catalog": {
+      "catalog": "main",
+      "schema": "silver_test",
+      "table_prefix": "your_pipeline_name"
+    }
+  },
+
+  "bundle_metadata": {
+    "bundle_name": "your_pipeline_bundle",
+    "version": "1.0.0",
+    "target_environments": ["dev", "staging", "prod"]
+  },
+
+  "workflow_specification": {
+    "job_name": "your_pipeline_workflow",
+    "description": "Runs the full pipeline and integration tests",
+    "parameters": {
+      "catalog_name": "main",
+      "schema_name": "silver",
+      "environment": "dev"
+    },
+    "job_clusters": [
+      {
+        "new_cluster": {
+          "spark_version": "15.4.x-scala2.12",
+          "node_type_id": "m5d.large",
+          "num_workers": 2,
+          "spark_conf": {
+            "spark.databricks.delta.preview.enabled": "true"
+          }
+        }
+      }
+    ]
+  },
+
+  "issues": [
+    {
+      "_comment": "Use this array to flag ambiguous or unsupported requirements",
+      "severity": "warning",
+      "field": "example_field",
+      "message": "The mapping for this field was ambiguous — two possible interpretations exist"
+    }
+  ]
+}

@@ -1,0 +1,134 @@
+{
+  "metadata": {
+    "pipeline_name": "customer_360",
+    "version": "2.0.0",
+    "description": "Multi-stage pipeline demonstrating joins, ambiguity tracking, and structured expectations."
+  },
+  "sources": [
+    {
+      "source_id": "raw_customers",
+      "type": "file",
+      "format": "csv",
+      "location_ref": "s3://landing/customers/",
+      "read_options": {
+        "header": "true",
+        "inferSchema": "false"
+      }
+    },
+    {
+      "source_id": "raw_transactions",
+      "type": "table",
+      "format": "delta",
+      "location_ref": "main.landing.transactions"
+    }
+  ],
+  "stages": [
+    {
+      "stage_id": "silver_customers",
+      "inputs": ["raw_customers"],
+      "operations": {
+        "mappings": [
+          {
+            "target_field": "customer_id",
+            "target_type": "string",
+            "source_fields": ["cust_id"],
+            "transformation": {
+              "type": "cast",
+              "params": {}
+            },
+            "provenance": {
+              "confidence": "high",
+              "source_reference": "Requirement Doc Section 2.1"
+            }
+          },
+          {
+            "target_field": "customer_status",
+            "target_type": "string",
+            "source_fields": ["status_code"],
+            "transformation": {
+              "type": "UNKNOWN"
+            },
+            "provenance": {
+              "confidence": "human_required",
+              "assumptions": "Doc says 'map appropriately' but provided no code map. Need human review."
+            }
+          }
+        ],
+        "expectations": [
+          {
+            "rule_id": "cust_id_not_null",
+            "name": "Customer ID must exist",
+            "target_fields": ["customer_id"],
+            "condition": {
+              "operator": "IS_NOT_NULL"
+            },
+            "action": "quarantine"
+          }
+        ]
+      },
+      "output": {
+        "table_name": "main.silver.customers",
+        "write_mode": "merge",
+        "merge_keys": ["customer_id"],
+        "schema_evolution": {
+          "allow_new_columns": true
+        }
+      }
+    },
+    {
+      "stage_id": "gold_customer_metrics",
+      "inputs": ["silver_customers", "raw_transactions"],
+      "operations": {
+        "joins": [
+          {
+            "left_input": "silver_customers",
+            "right_input": "raw_transactions",
+            "join_type": "left",
+            "conditions": [
+              {
+                "left_field": "customer_id",
+                "operator": "==",
+                "right_field": "customer_id"
+              }
+            ]
+          }
+        ],
+        "mappings": [
+          {
+            "target_field": "total_spend",
+            "target_type": "decimal(18,2)",
+            "source_fields": ["transaction_amount"],
+            "transformation": {
+              "type": "aggregate",
+              "params": {
+                "function": "SUM"
+              }
+            },
+            "provenance": {
+              "confidence": "high"
+            }
+          }
+        ]
+      },
+      "output": {
+        "table_name": "main.gold.customer_metrics",
+        "write_mode": "overwrite"
+      }
+    }
+  ],
+  "environments": [
+    {
+      "name": "dev",
+      "cluster": {
+        "node_type": "m5d.large",
+        "workers": 2
+      }
+    }
+  ],
+  "tests": {
+    "integration": {
+      "synthetic_catalog": "main",
+      "synthetic_schema": "test_fixtures"
+    }
+  }
+}

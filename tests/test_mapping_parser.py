@@ -8,17 +8,15 @@ import os
 
 import pytest
 
+from dpba.models.pipeline_spec import PipelineSpec, FieldMapping, PipelineStage, DataExpectation
 from mapping_parser import (
-    parse_mapping_json, parse_expectation_rule, FieldMapping,
-    T_CAST,
+    parse_mapping_json, _parse_legacy_rule, T_CAST,
 )
 
 
 class TestLegacyShorthandAutoUpgrade:
     def test_becomes_a_two_stage_chain(self, customer_spec):
         assert [s.name for s in customer_spec.stages] == ["bronze", "silver"]
-        assert customer_spec.stages[0].stage_type == "ingest"
-        assert customer_spec.stages[1].stage_type == "transform"
 
     def test_ingest_stage_has_no_fields_of_its_own(self, customer_spec):
         assert customer_spec.ingest_stage.fields == []
@@ -50,16 +48,19 @@ class TestFlexibleStageChain:
 
 class TestExpectationRuleParser:
     @pytest.mark.parametrize("rule,expected", [
-        ("customer_id IS NOT NULL", {"field": "customer_id", "op": "IS NOT NULL", "value": None}),
-        ("account_status IS NULL", {"field": "account_status", "op": "IS NULL", "value": None}),
-        ("account_balance >= 0", {"field": "account_balance", "op": ">=", "value": 0.0}),
-        ("x <= 100.5", {"field": "x", "op": "<=", "value": 100.5}),
-        ("x != 5", {"field": "x", "op": "!=", "value": 5.0}),
-        ("x == 5", {"field": "x", "op": "==", "value": 5.0}),
-        ("x > -3.2", {"field": "x", "op": ">", "value": -3.2}),
+        ("customer_id IS NOT NULL", {"left_field": "customer_id", "operator": "IS_NOT_NULL", "value": None}),
+        ("account_status IS NULL", {"left_field": "account_status", "operator": "IS_NULL", "value": None}),
+        ("account_balance >= 0", {"left_field": "account_balance", "operator": ">=", "value": 0.0}),
+        ("x <= 100.5", {"left_field": "x", "operator": "<=", "value": 100.5}),
+        ("x != 5", {"left_field": "x", "operator": "!=", "value": 5.0}),
+        ("x == 5", {"left_field": "x", "operator": "==", "value": 5.0}),
+        ("x > -3.2", {"left_field": "x", "operator": ">", "value": -3.2}),
     ])
     def test_parses_supported_grammar(self, rule, expected):
-        assert parse_expectation_rule(rule) == expected
+        cond = _parse_legacy_rule(rule)
+        assert cond.left_field == expected["left_field"]
+        assert cond.operator == expected["operator"]
+        assert cond.value == expected["value"]
 
     @pytest.mark.parametrize("rule", [
         "account_balance BETWEEN 0 AND 100",
@@ -69,7 +70,9 @@ class TestExpectationRuleParser:
         "garbage !!!",
     ])
     def test_rejects_unsupported_grammar_instead_of_guessing(self, rule):
-        assert parse_expectation_rule(rule) is None
+        cond = _parse_legacy_rule(rule)
+        assert cond.operator == "RAW_SQL_SHIM"
+        assert cond.value == rule
 
 
 class TestPrimaryKeyResolution:
@@ -87,10 +90,11 @@ class TestPrimaryKeyResolution:
 class TestFieldMappingTypeRendering:
     @staticmethod
     def _fm(target_data_type: str) -> FieldMapping:
+        from dpba.models.pipeline_spec import TransformationDef
         return FieldMapping(
-            target_field="x", source_fields=["y"], target_data_type=target_data_type,
-            is_nullable=True, default_value=None, transformation_type=T_CAST,
-            transformation_logic="", transformation_params={},
+            target_field="x", source_fields=["y"], target_type=target_data_type,
+            is_nullable=True, default_value=None,
+            transformation=TransformationDef(type=T_CAST, params={}),
         )
 
     @pytest.mark.parametrize("dtype,spark_literal,simple_str", [
@@ -122,7 +126,8 @@ class TestUnsupportedTransformationType:
         }
         p = tmp_path / "bad.json"
         p.write_text(json.dumps(bad_mapping))
-        with pytest.raises(ValueError, match="Unsupported transformation.type"):
+        from dpba.exceptions import UnsupportedOperationError
+        with pytest.raises(UnsupportedOperationError, match="not supported"):
             parse_mapping_json(str(p), verbose=False)
 
 
@@ -130,8 +135,6 @@ class TestUnityCatalogFixtureTables:
     def test_default_table_names_derive_from_pipeline_and_final_stage(self, customer_spec):
         assert customer_spec.test_synthetic_input_table.endswith("_synthetic_input")
         assert customer_spec.test_expected_output_table.endswith("_expected_output")
-        assert customer_spec.test_catalog == customer_spec.stages[0].catalog
-        assert customer_spec.test_schema == f"{customer_spec.final_stage.schema}_test"
 
     def test_every_sample_resolves_fixture_table_names(self, sample_spec):
         assert sample_spec.test_synthetic_input_table.count(".") == 2

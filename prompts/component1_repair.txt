@@ -1,0 +1,16 @@
+Your previous JSON response was invalid and failed validation. The errors are listed below. Fix ONLY the problems described. Do not change any field that was already correct. Return a corrected JSON object matching the required schema.
+
+Validation errors:
+{errors}
+
+Original response (fix this):
+{previous_response}
+
+Rules:
+1. Return ONLY a valid JSON object. No explanation, no markdown fences.
+2. Every pipeline_stages entry must have stage_name and stage_type.
+3. The first stage must be stage_type "ingest"; all others must be "transform".
+4. Every mapping must have target_field, source_fields (array), and a transformation object with type and params.
+5. Supported transformation types: direct, cast, concat, conditional, date_format, conditional_date, lookup, split.
+6. Never include generated_code, python_code, pyspark_code, sql_code, or executable fields.
+7. Flag uncertain requirements in the issues array instead of guessing.
